@@ -201,7 +201,10 @@ def process_qr_code():
 
         # 更新全局帧变量（线程安全）
         with lock:
-            output_frame['qrcode'] = frame
+            if output_frame is not None:  # 检查 output_frame 是否已初始化
+                output_frame['qrcode'] = frame
+            else:
+                print("Warning: output_frame is None, skipping QR code update.")
 
 def process_serial_communication():
     ser = serial.Serial('COM3', 9600)  # 根据需要修改串口号和波特率
@@ -297,17 +300,20 @@ def update_thresholds():
     return 'Thresholds updated successfully!'
 
 if __name__ == '__main__':
-    # 启动一个线程处理摄像头
+    # 启动一个线程处理色环和色块
     t = threading.Thread(target=process_camera_feed)
     t.daemon = True
     t.start()
 
+    # 启动一个线程处理二维码    
     t2 = threading.Thread(target=process_qr_code)
     t2.daemon = True
     t2.start()
 
+    # 启动一个线程处理串口数据
     # t3 = threading.Thread(target=process_serial_communication)
     # t3.daemon = True
     # t3.start()
+    
     #启动Flask服务，访问 http://<服务器IP>:5000 查看识别结果
     app.run(host='0.0.0.0', port=5000)
