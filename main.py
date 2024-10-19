@@ -176,10 +176,15 @@ def process_camera_feed():
                 'green': mask_green,
                 'blue': mask_blue
             }
-
+# 定义全局变量用于控制二维码扫描线程
+qr_code_scanning_enabled = True
 def process_qr_code():
+    global qr_code_scanning_enabled  # 引用全局变量
     qr_detector = cv2.QRCodeDetector()  # 创建 QRCodeDetector 实例
     while True:
+        if not qr_code_scanning_enabled:  # 检查是否允许扫描
+            continue  # 如果不允许，继续下一次循环
+
         success, frame = camera2.read()  # 从第二个摄像头读取帧
         if not success:
             continue  # 如果读取失败，继续下一次循环
@@ -198,18 +203,20 @@ def process_qr_code():
         with lock:
             output_frame['qrcode'] = frame
 
-        #time.sleep(0.1)  # 暂停以降低CPU使用率
-
 def process_serial_communication():
     ser = serial.Serial('COM3', 9600)  # 根据需要修改串口号和波特率
     while True:
         if ser.in_waiting > 0:
             line = ser.readline().decode('utf-8').rstrip()
-            # 根据串口接收到的命令修改task
+            # 根据串口接收到的命令修改task和qr_code_scanning_enabled
             if line == 'switch_to_block':
                 task = 'block'
             elif line == 'switch_to_circle':
                 task = 'circle'
+            elif line == 'enable_qr_scanning':
+                qr_code_scanning_enabled = True  # 启用二维码扫描
+            elif line == 'disable_qr_scanning':
+                qr_code_scanning_enabled = False  # 禁用二维码扫描
             print(f"Received from serial: {line}")
         # 从队列中获取数据并通过串口发送
         if not data_queue.empty():
@@ -217,9 +224,6 @@ def process_serial_communication():
             ser.write(data_to_send.encode('utf-8'))
             print(f"Sent to serial: {data_to_send}")
         time.sleep(0.1)  # 暂停以降低CPU使用率
-
-
-
 
 def generate_frames(color):
     global output_frame
