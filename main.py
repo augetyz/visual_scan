@@ -2,7 +2,7 @@ from flask import Flask, Response, render_template, request
 import cv2
 import numpy as np
 import threading
-import serial  # 导入串口通信库
+from periphery import Serial  # 导入串口通信库
 import time  # 导入时间库
 from queue import Queue
 app = Flask(__name__)
@@ -11,11 +11,11 @@ app = Flask(__name__)
 camera = cv2.VideoCapture(0)  # 使用默认摄像头
 camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
 camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-
+# camera.set(cv2.CAP_PROP_FPS, 30)  # 设置为 30 FPS
 camera2 = cv2.VideoCapture(2)  # 使用第二个摄像头
 camera2.set(cv2.CAP_PROP_FRAME_WIDTH,  800)
 camera2.set(cv2.CAP_PROP_FRAME_HEIGHT, 800)
-
+# camera2.set(cv2.CAP_PROP_FPS, 30)  # 设置为 30 FPS
 # 定义颜色阈值（HSV格式）
 thresholds = {
     'red': {'lower': np.array([0, 20, 20]), 'upper': np.array([40, 255, 234])},
@@ -49,11 +49,33 @@ def process_camera_feed():
 
     global output_frame
 
+    def send_data_to_queue(x, y, color, frame_type):
+        # 将 x 和 y 转换为 Python 原生 int 类型，再调用 to_bytes
+        x_bytes = int(x).to_bytes(2, byteorder='big')
+        y_bytes = int(y).to_bytes(2, byteorder='big')
+
+        # 颜色转换为单个字节
+        color_byte = bytes([color])
+
+        # 构建数据内容
+        data_content = x_bytes + y_bytes + color_byte
+        data_length = len(data_content)
+
+        # 构建最终帧
+        frame = bytearray([0xAA, frame_type, data_length]) + data_content + bytearray([0xBB])
+
+        # 将帧放入队列
+        data_queue.put(frame)
+
+    # 记录开始时间
+    start_time = time.time()
+    frame_count = 0
     while True:
         success, frame = camera.read()  # 从摄像头读取帧
         if not success:
             break
-        
+        # 增加帧计数
+        frame_count += 1
         # 创建彩色图像的副本用于标注
         annotated_frame = frame.copy()
         mask_red = None
@@ -96,7 +118,7 @@ def process_camera_feed():
                 cv2.circle(annotated_frame, (x, y), r, (0, 0, 255), 4)
                 cv2.circle(annotated_frame, (x, y), 2, (0, 0, 255), 3)  # 标记中心点
                 print(f"Red Circle - {(x, y, r)}")
-                data_queue.put(f"Red Circle - {(x, y, r)}")
+                send_data_to_queue(x, y, 0x01, 0xDD)  # Red circle
 
             # 标注绿色最大圆形
             largest_green_circle = find_largest_circle(circles_green)
@@ -105,7 +127,7 @@ def process_camera_feed():
                 cv2.circle(annotated_frame, (x, y), r, (0, 255, 0), 4)
                 cv2.circle(annotated_frame, (x, y), 2, (0, 255, 0), 3)  # 标记中心点
                 print(f"Green Circle - {(x, y, r)}")
-                data_queue.put(f"Green Circle - {(x, y, r)}")
+                send_data_to_queue(x, y, 0x02, 0xDD)  # Green circle
 
             # 标注蓝色最大圆形
             largest_blue_circle = find_largest_circle(circles_blue)
@@ -114,7 +136,7 @@ def process_camera_feed():
                 cv2.circle(annotated_frame, (x, y), r, (255, 0, 0), 4)
                 cv2.circle(annotated_frame, (x, y), 2, (255, 0, 0), 3)  # 标记中心点
                 print(f"Blue Circle - {(x, y, r)}")
-                data_queue.put(f"Blue Circle - {(x, y, r)}")
+                send_data_to_queue(x, y, 0x03, 0xDD)  # Blue circle
 
 
         elif task == 'block':
@@ -150,7 +172,7 @@ def process_camera_feed():
                 cv2.rectangle(annotated_frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
                 center = (x + w // 2, y + h // 2)
                 print(f"Red Block - Center: {center}, Width: {w}, Height: {h}")
-                data_queue.put(f"Red Block - Center: {(x + w // 2, y + h // 2)}, Width: {w}, Height: {h}")
+                send_data_to_queue(center[0], center[1], 0x01, 0xEE)  # Red block
             # 标注最大绿色色块
             largest_green_contour = find_largest_contour(mask_green, min_area, max_area)
             if largest_green_contour is not None:
@@ -158,7 +180,7 @@ def process_camera_feed():
                 cv2.rectangle(annotated_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 center = (x + w // 2, y + h // 2)
                 print(f"Green Block - Center: {center}, Width: {w}, Height: {h}")
-                data_queue.put(f"Green Block - Center: {(x + w // 2, y + h // 2)}, Width: {w}, Height: {h}")
+                send_data_to_queue(center[0], center[1], 0x02, 0xEE)  # Green block
             # 标注最大蓝色色块
             largest_blue_contour = find_largest_contour(mask_blue, min_area, max_area)
             if largest_blue_contour is not None:
@@ -166,9 +188,16 @@ def process_camera_feed():
                 cv2.rectangle(annotated_frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
                 center = (x + w // 2, y + h // 2)
                 print(f"Blue Block - Center: {center}, Width: {w}, Height: {h}")
-                data_queue.put(f"Blue Block - Center: {(x + w // 2, y + h // 2)}, Width: {w}, Height: {h}")
+                send_data_to_queue(center[0], center[1], 0x03, 0xEE)  # Blue block
 
-            # 更新全局帧变量（线程安全）
+        # 计算并显示帧率（FPS）
+        elapsed_time = time.time() - start_time
+        if elapsed_time > 0:
+            fps = frame_count / elapsed_time
+            # 将FPS绘制在图像上
+            cv2.putText(annotated_frame, f"FPS: {fps:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                        (255, 255, 255), 2)
+        # 更新全局帧变量（线程安全）
         with lock:
             output_frame = {
                 'color': annotated_frame,
@@ -181,52 +210,73 @@ qr_code_scanning_enabled = True
 def process_qr_code():
     global qr_code_scanning_enabled  # 引用全局变量
     qr_detector = cv2.QRCodeDetector()  # 创建 QRCodeDetector 实例
+    def send_qr_data_to_queue(data):
+        # Assuming data is a string of 6 characters
+        data_content = data.encode('utf-8')[:3]+data.encode('utf-8')[4:7]  
+        data_length = len(data_content)
+        frame = bytearray([0xAA, 0xCC, data_length]) + data_content + bytearray([0xBB])
+        data_queue.put(frame)
+
     while True:
         if not qr_code_scanning_enabled:  # 检查是否允许扫描
+            time.sleep(0.1)
             continue  # 如果不允许，继续下一次循环
 
         success, frame = camera2.read()  # 从第二个摄像头读取帧
         if not success:
             continue  # 如果读取失败，继续下一次循环
 
-        # 使用 detectAndDecode 方法检测 QR 码
-        data, bbox, _ = qr_detector.detectAndDecode(frame)
+        if frame is None or frame.size == 0:
+            print("Error: Received empty frame.")
+            continue
+        try:
+            # 使用 detectAndDecode 方法检测 QR 码
+            data, bbox, _ = qr_detector.detectAndDecode(frame)
 
-        if bbox is not None and data:
-            # 确保 bbox 是整数并绘制多边形
-            bbox = bbox.astype(int)
-            cv2.polylines(frame, [bbox], isClosed=True, color=(0, 255, 0), thickness=2)
-            print(f"Detected QR code: {data}")
-            data_queue.put(f"Detected QR code: {data}")
+            if bbox is not None and data:
+                # 确保 bbox 是整数并绘制多边形
+                bbox = bbox.astype(int)
+                cv2.polylines(frame, [bbox], isClosed=True, color=(0, 255, 0), thickness=2)
+                print(f"Detected QR code: {data}")
+                send_qr_data_to_queue(data)
+        except cv2.error as e:
+            print(f"OpenCV error during QR code detection: {e}")
 
         # 更新全局帧变量（线程安全）
         with lock:
             if output_frame is not None:  # 检查 output_frame 是否已初始化
                 output_frame['qrcode'] = frame
-            else:
-                print("Warning: output_frame is None, skipping QR code update.")
+
 
 def process_serial_communication():
-    ser = serial.Serial('COM3', 9600)  # 根据需要修改串口号和波特率
+    global task
+    global qr_code_scanning_enabled
+    ser = Serial('/dev/ttyUSB0', 115200)  # 根据需要修改串口号和波特率
     while True:
-        if ser.in_waiting > 0:
-            line = ser.readline().decode('utf-8').rstrip()
+        num_date=ser.input_waiting()
+        if num_date > 0:
+            line = ser.read(num_date,0)
             # 根据串口接收到的命令修改task和qr_code_scanning_enabled
-            if line == 'switch_to_block':
+            if line == b'1':
                 task = 'block'
-            elif line == 'switch_to_circle':
+                print('block')
+            elif line == b'2':
                 task = 'circle'
-            elif line == 'enable_qr_scanning':
+                print('circle')
+            elif line == b'3':
                 qr_code_scanning_enabled = True  # 启用二维码扫描
-            elif line == 'disable_qr_scanning':
+                print('qr_code_scanning_enabled')
+            elif line == b'4':
                 qr_code_scanning_enabled = False  # 禁用二维码扫描
-            print(f"Received from serial: {line}")
+                print('qr_code_scanning_disabled')
+            print(line)
         # 从队列中获取数据并通过串口发送
         if not data_queue.empty():
             data_to_send = data_queue.get()
-            ser.write(data_to_send.encode('utf-8'))
-            print(f"Sent to serial: {data_to_send}")
+            ser.write(data_to_send)
+            print(f"Sent to serial: {data_to_send.hex()}")
         time.sleep(0.1)  # 暂停以降低CPU使用率
+        
 
 def generate_frames(color):
     global output_frame
@@ -311,9 +361,9 @@ if __name__ == '__main__':
     t2.start()
 
     # 启动一个线程处理串口数据
-    # t3 = threading.Thread(target=process_serial_communication)
-    # t3.daemon = True
-    # t3.start()
+    t3 = threading.Thread(target=process_serial_communication)
+    t3.daemon = True
+    t3.start()
     
     #启动Flask服务，访问 http://<服务器IP>:5000 查看识别结果
     app.run(host='0.0.0.0', port=5000)
