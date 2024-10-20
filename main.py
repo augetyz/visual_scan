@@ -5,6 +5,7 @@ import threading
 from periphery import Serial  # 导入串口通信库
 import time  # 导入时间库
 from queue import Queue
+from concurrent.futures import ThreadPoolExecutor
 app = Flask(__name__)
 
 # 初始化摄像头
@@ -13,8 +14,8 @@ camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
 camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 # camera.set(cv2.CAP_PROP_FPS, 30)  # 设置为 30 FPS
 camera2 = cv2.VideoCapture(2)  # 使用第二个摄像头
-camera2.set(cv2.CAP_PROP_FRAME_WIDTH,  800)
-camera2.set(cv2.CAP_PROP_FRAME_HEIGHT, 800)
+camera2.set(cv2.CAP_PROP_FRAME_WIDTH,  720)
+camera2.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 # camera2.set(cv2.CAP_PROP_FPS, 30)  # 设置为 30 FPS
 # 定义颜色阈值（HSV格式）
 thresholds = {
@@ -67,15 +68,15 @@ def process_camera_feed():
         # 将帧放入队列
         data_queue.put(frame)
 
-    # 记录开始时间
-    start_time = time.time()
-    frame_count = 0
+    # # 记录开始时间
+    # start_time = time.time()
+    # frame_count = 0
     while True:
         success, frame = camera.read()  # 从摄像头读取帧
         if not success:
             break
-        # 增加帧计数
-        frame_count += 1
+        # # 增加帧计数
+        # frame_count += 1
         # 创建彩色图像的副本用于标注
         annotated_frame = frame.copy()
         mask_red = None
@@ -190,13 +191,13 @@ def process_camera_feed():
                 print(f"Blue Block - Center: {center}, Width: {w}, Height: {h}")
                 send_data_to_queue(center[0], center[1], 0x03, 0xEE)  # Blue block
 
-        # 计算并显示帧率（FPS）
-        elapsed_time = time.time() - start_time
-        if elapsed_time > 0:
-            fps = frame_count / elapsed_time
-            # 将FPS绘制在图像上
-            cv2.putText(annotated_frame, f"FPS: {fps:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                        (255, 255, 255), 2)
+        # # 计算并显示帧率（FPS）
+        # elapsed_time = time.time() - start_time
+        # if elapsed_time > 0:
+        #     fps = frame_count / elapsed_time
+        #     # 将FPS绘制在图像上
+        #     cv2.putText(annotated_frame, f"FPS: {fps:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
+        #                 (255, 255, 255), 2)
         # 更新全局帧变量（线程安全）
         with lock:
             output_frame = {
@@ -349,21 +350,15 @@ def update_thresholds():
 
     return 'Thresholds updated successfully!'
 
+
+# 初始化一个ThreadPoolExecutor，工作线程数设置为CPU核心数
+executor = ThreadPoolExecutor(max_workers=8)  # 根据需要调整工作线程数
+
 if __name__ == '__main__':
-    # 启动一个线程处理色环和色块
-    t = threading.Thread(target=process_camera_feed)
-    t.daemon = True
-    t.start()
-
-    # 启动一个线程处理二维码    
-    t2 = threading.Thread(target=process_qr_code)
-    t2.daemon = True
-    t2.start()
-
-    # 启动一个线程处理串口数据
-    t3 = threading.Thread(target=process_serial_communication)
-    t3.daemon = True
-    t3.start()
+    # 使用executor并行运行摄像头和二维码处理
+    executor.submit(process_camera_feed)
+    executor.submit(process_qr_code)
+    executor.submit(process_serial_communication)
     
     #启动Flask服务，访问 http://<服务器IP>:5000 查看识别结果
     app.run(host='0.0.0.0', port=5000)
