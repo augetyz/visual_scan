@@ -49,7 +49,7 @@ def process_camera_feed():
     max_area = 50000  # 最大面积阈值
 
     global output_frame
-
+    global thresholds
     def send_data_to_queue(x, y, color, frame_type):
         # 将 x 和 y 转换为 Python 原生 int 类型，再调用 to_bytes
         x_bytes = int(x).to_bytes(2, byteorder='big')
@@ -333,21 +333,18 @@ def update_thresholds():
     thresholds['red']['upper'] = np.array([int(request.form.get('red_upper_h')),
                                            int(request.form.get('red_upper_s')),
                                            int(request.form.get('red_upper_v'))])
-
     thresholds['green']['lower'] = np.array([int(request.form.get('green_lower_h')),
                                              int(request.form.get('green_lower_s')),
                                              int(request.form.get('green_lower_v'))])
     thresholds['green']['upper'] = np.array([int(request.form.get('green_upper_h')),
                                              int(request.form.get('green_upper_s')),
                                              int(request.form.get('green_upper_v'))])
-
     thresholds['blue']['lower'] = np.array([int(request.form.get('blue_lower_h')),
                                             int(request.form.get('blue_lower_s')),
                                             int(request.form.get('blue_lower_v'))])
     thresholds['blue']['upper'] = np.array([int(request.form.get('blue_upper_h')),
                                             int(request.form.get('blue_upper_s')),
                                             int(request.form.get('blue_upper_v'))])
-
     return 'Thresholds updated successfully!'
 
 
