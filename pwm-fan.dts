@@ -1,0 +1,10 @@
+/dts-v1/;
+/plugin/;
+/ {
+        fragment@0 {
+                target = <&fan0>;
+                __overlay__ {
+                        cooling-levels = <150 165 180 200 220 240 245 250 255>;
+                };
+        };
+};

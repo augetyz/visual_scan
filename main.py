@@ -17,6 +17,16 @@ camera2 = cv2.VideoCapture(2)  # 使用第二个摄像头
 camera2.set(cv2.CAP_PROP_FRAME_WIDTH,  720)
 camera2.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 # camera2.set(cv2.CAP_PROP_FPS, 30)  # 设置为 30 FPS
+
+while True:
+    try:
+        ser = Serial("/dev/ttyACM0", 115200)
+        print("serial opened")
+        break
+    except Exception as e:
+      print("serial failed")
+    time.sleep(0.1) 
+
 # 定义颜色阈值（HSV格式）
 thresholds = {
     'red': {'lower': np.array([0, 20, 20]), 'upper': np.array([40, 255, 234])},
@@ -252,25 +262,27 @@ def process_qr_code():
 def process_serial_communication():
     global task
     global qr_code_scanning_enabled
-    ser = Serial('/dev/ttyUSB0', 115200)  # 根据需要修改串口号和波特率
     while True:
-        num_date=ser.input_waiting()
-        if num_date > 0:
-            line = ser.read(num_date,0)
-            # 根据串口接收到的命令修改task和qr_code_scanning_enabled
-            if line == b'1':
-                task = 'block'
-                print('block')
-            elif line == b'2':
-                task = 'circle'
-                print('circle')
-            elif line == b'3':
-                qr_code_scanning_enabled = True  # 启用二维码扫描
-                print('qr_code_scanning_enabled')
-            elif line == b'4':
-                qr_code_scanning_enabled = False  # 禁用二维码扫描
-                print('qr_code_scanning_disabled')
-            print(line)
+        try:
+            num_date=ser.input_waiting()
+            if num_date > 0:
+                line = ser.read(num_date,0)
+                # 根据串口接收到的命令修改task和qr_code_scanning_enabled
+                if line == b'1':
+                    task = 'block'
+                    print('block')
+                elif line == b'2':
+                    task = 'circle'
+                    print('circle')
+                elif line == b'3':
+                    qr_code_scanning_enabled = True  # 启用二维码扫描
+                    print('qr_code_scanning_enabled')
+                elif line == b'4':
+                    qr_code_scanning_enabled = False  # 禁用二维码扫描
+                    print('qr_code_scanning_disabled')
+                print(line)
+        except Exception as e:
+            print("serial error")
         # 从队列中获取数据并通过串口发送
         if not data_queue.empty():
             data_to_send = data_queue.get()
