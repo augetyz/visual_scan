@@ -2,10 +2,12 @@ from flask import Flask, Response, render_template, request
 import cv2
 import numpy as np
 import threading
+import os
 from periphery import Serial  # 导入串口通信库
 import time  # 导入时间库
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
+
 app = Flask(__name__)
 
 # 初始化摄像头
@@ -17,16 +19,21 @@ camera2 = cv2.VideoCapture(2)  # 使用第二个摄像头
 camera2.set(cv2.CAP_PROP_FRAME_WIDTH,  720)
 camera2.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 # camera2.set(cv2.CAP_PROP_FPS, 30)  # 设置为 30 FPS
-
-while True:
-    try:
-        ser = Serial("/dev/ttyACM0", 115200)
-        print("serial opened")
-        break
-    except Exception as e:
-      print("serial failed")
-    time.sleep(0.1) 
-
+ser=None
+def serial_open():
+    global ser
+    available_ports = ["/dev/ttyACM0", "/dev/ttyACM1"]  # 可用的端口列表
+    while True:
+        for port in available_ports:
+            if os.path.exists(port):  # 检测设备是否存在
+                try:
+                    ser = Serial(port, 115200)
+                    print(f"Serial opened on {port}")
+                    return  # 成功打开后退出函数
+                except Exception as e:
+                    print(f"Failed to open {port}: {e}")
+        print("No valid serial port found. Retrying...")
+        time.sleep(0.1)  # 延迟后重试
 # 定义颜色阈值（HSV格式）
 thresholds = {
     'red': {'lower': np.array([0, 20, 20]), 'upper': np.array([40, 255, 234])},
@@ -262,27 +269,32 @@ def process_qr_code():
 def process_serial_communication():
     global task
     global qr_code_scanning_enabled
+    wait_time=0
     while True:
         try:
-            num_date=ser.input_waiting()
-            if num_date > 0:
-                line = ser.read(num_date,0)
-                # 根据串口接收到的命令修改task和qr_code_scanning_enabled
-                if line == b'1':
-                    task = 'block'
-                    print('block')
-                elif line == b'2':
-                    task = 'circle'
-                    print('circle')
-                elif line == b'3':
-                    qr_code_scanning_enabled = True  # 启用二维码扫描
-                    print('qr_code_scanning_enabled')
-                elif line == b'4':
-                    qr_code_scanning_enabled = False  # 禁用二维码扫描
-                    print('qr_code_scanning_disabled')
-                print(line)
+            # 检查是否有数据等待读取
+            num_data = ser.input_waiting()
+            if num_data > 0:
+                # 读取串口数据
+                line = ser.read(num_data, 0)
+                print(f"Received: {line}")
+                for byte in line:
+                    # 根据接收到的字节修改task和qr_code_scanning_enabled
+                    if byte == ord('1'):
+                        task = 'block'
+                        print('block')
+                    elif byte == ord('2'):
+                        task = 'circle'
+                        print('circle')
+                    elif byte == ord('3'):
+                        qr_code_scanning_enabled = True  # 启用二维码扫描
+                        print('qr_code_scanning_enabled')
+                    elif byte == ord('4'):
+                        qr_code_scanning_enabled = False  # 禁用二维码扫描
+                        print('qr_code_scanning_disabled')
         except Exception as e:
             print("serial error")
+            serial_open()
         # 从队列中获取数据并通过串口发送
         if not data_queue.empty():
             data_to_send = data_queue.get()
@@ -364,6 +376,7 @@ def update_thresholds():
 executor = ThreadPoolExecutor(max_workers=8)  # 根据需要调整工作线程数
 
 if __name__ == '__main__':
+    serial_open()
     # 使用executor并行运行摄像头和二维码处理
     executor.submit(process_camera_feed)
     executor.submit(process_qr_code)
