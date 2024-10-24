@@ -14,11 +14,11 @@ app = Flask(__name__)
 camera = cv2.VideoCapture(0)  # 使用默认摄像头
 camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
 camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-# camera.set(cv2.CAP_PROP_FPS, 30)  # 设置为 30 FPS
+camera.set(cv2.CAP_PROP_FPS, 30)  # 设置为 30 FPS
 camera2 = cv2.VideoCapture(2)  # 使用第二个摄像头
 camera2.set(cv2.CAP_PROP_FRAME_WIDTH,  720)
 camera2.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-# camera2.set(cv2.CAP_PROP_FPS, 30)  # 设置为 30 FPS
+camera2.set(cv2.CAP_PROP_FPS, 30)  # 设置为 30 FPS
 ser=None
 def serial_open():
     global ser
@@ -86,14 +86,14 @@ def process_camera_feed():
         data_queue.put(frame)
 
     # # 记录开始时间
-    # start_time = time.time()
-    # frame_count = 0
+    start_time = time.time()
+    frame_count = 0
     while True:
         success, frame = camera.read()  # 从摄像头读取帧
         if not success:
             break
         # # 增加帧计数
-        # frame_count += 1
+        frame_count += 1
         # 创建彩色图像的副本用于标注
         annotated_frame = frame.copy()
         mask_red = None
@@ -208,13 +208,13 @@ def process_camera_feed():
                 print(f"Blue Block - Center: {center}, Width: {w}, Height: {h}")
                 send_data_to_queue(center[0], center[1], 0x03, 0xEE)  # Blue block
 
-        # # 计算并显示帧率（FPS）
-        # elapsed_time = time.time() - start_time
-        # if elapsed_time > 0:
-        #     fps = frame_count / elapsed_time
-        #     # 将FPS绘制在图像上
-        #     cv2.putText(annotated_frame, f"FPS: {fps:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
-        #                 (255, 255, 255), 2)
+        # 计算并显示帧率（FPS）
+        elapsed_time = time.time() - start_time
+        if elapsed_time > 0:
+            fps = frame_count / elapsed_time
+            # 将FPS绘制在图像上
+            cv2.putText(annotated_frame, f"FPS: {fps:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                        (255, 255, 255), 2)
         # 更新全局帧变量（线程安全）
         with lock:
             output_frame = {
@@ -234,10 +234,11 @@ def process_qr_code():
         data_length = len(data_content)
         frame = bytearray([0xAA, 0xCC, data_length]) + data_content + bytearray([0xBB])
         data_queue.put(frame)
+        print(frame)
 
     while True:
         if not qr_code_scanning_enabled:  # 检查是否允许扫描
-            time.sleep(0.1)
+            time.sleep(1)
             continue  # 如果不允许，继续下一次循环
 
         success, frame = camera2.read()  # 从第二个摄像头读取帧
@@ -292,6 +293,12 @@ def process_serial_communication():
                     elif byte == ord('4'):
                         qr_code_scanning_enabled = False  # 禁用二维码扫描
                         print('qr_code_scanning_disabled')
+            else:
+                wait_time+=1
+                if wait_time>1000:
+                    print("serial error")
+                    serial_open()
+                    wait_time=0
         except Exception as e:
             print("serial error")
             serial_open()
