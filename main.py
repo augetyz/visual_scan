@@ -151,7 +151,7 @@ def process_camera_feed():
                 (x, y, r) = largest_red_circle
                 cv2.circle(annotated_frame, (x, y), r, (0, 0, 255), 4)
                 cv2.circle(annotated_frame, (x, y), 2, (0, 0, 255), 3)  # 标记中心点
-                center = (int(x - 1024 / 2 + w // 2), int(y * (-1) + 360 - h // 2))
+                center = (int(x - 1024 / 2 ), int(y * (-1) + 360))
                 cv2.putText(annotated_frame, f"({center[0]}, {center[1]})", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
                 print(f"Red Circle - {(center[0], center[1], r)}")
                 send_data_to_queue(center[0], center[1], 0x01, 0xDD)  # Red circle
@@ -162,7 +162,7 @@ def process_camera_feed():
                 (x, y, r) = largest_green_circle
                 cv2.circle(annotated_frame, (x, y), r, (0, 255, 0), 4)
                 cv2.circle(annotated_frame, (x, y), 2, (0, 255, 0), 3)  # 标记中心点
-                center = (int(x - 1024 / 2 + w // 2), int(y * (-1) + 360 - h // 2))
+                center = (int(x - 1024 / 2 ), int(y * (-1) + 360 ))
                 cv2.putText(annotated_frame, f"({center[0]}, {center[1]})", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                 print(f"Green Circle - {(center[0], center[1], r)}")
                 send_data_to_queue(center[0], center[1], 0x02, 0xDD)  # Green circle
@@ -173,7 +173,7 @@ def process_camera_feed():
                 (x, y, r) = largest_blue_circle
                 cv2.circle(annotated_frame, (x, y), r, (255, 0, 0), 4)
                 cv2.circle(annotated_frame, (x, y), 2, (255, 0, 0), 3)  # 标记中心点
-                center = (int(x - 1024 / 2 + w // 2), int(y * (-1) + 360 - h // 2))
+                center = (int(x - 1024 / 2 ), int(y * (-1) + 360 ))
                 cv2.putText(annotated_frame, f"({center[0]}, {center[1]})", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
                 print(f"Blue Circle - {(center[0], center[1], r)}")
                 send_data_to_queue(center[0], center[1], 0x03, 0xDD)  # Blue circle
