@@ -38,14 +38,14 @@ def serial_open():
 thresholds = {
     'red': {'lower': np.array([0, 20, 20]), 'upper': np.array([40, 255, 234])},
     'green': {'lower': np.array([40,40,40]), 'upper': np.array([80,255,255])},
-    'blue': {'lower': np.array([34, 90, 70]), 'upper': np.array([100, 255, 255])}
+    'blue': {'lower': np.array([70, 60, 60]), 'upper': np.array([120, 200, 200])}
 }
 
 # 定义色块检测的阈值
 block_thresholds = {
-    'red': {'lower': np.array([0, 100, 100]), 'upper': np.array([10, 255, 255])},
-    'green': {'lower': np.array([40, 100, 100]), 'upper': np.array([80, 255, 255])},
-    'blue': {'lower': np.array([100, 150, 0]), 'upper': np.array([140, 255, 255])}
+    'red': {'lower': np.array([120, 150, 150]), 'upper': np.array([180, 255, 234])},
+    'green': {'lower': np.array([40, 40, 72]), 'upper': np.array([80, 255, 255])},
+    'blue': {'lower': np.array([100, 150, 60]), 'upper': np.array([140, 255, 255])}
 }
 
 # 定义腐蚀内核
@@ -278,7 +278,7 @@ def process_serial_communication():
             if num_data > 0:
                 # 读取串口数据
                 line = ser.read(num_data, 0)
-                print(f"Received: {line}")
+                # print(f"Received: {line}")
                 for byte in line:
                     # 根据接收到的字节修改task和qr_code_scanning_enabled
                     if byte == ord('1'):
@@ -306,7 +306,7 @@ def process_serial_communication():
         if not data_queue.empty():
             data_to_send = data_queue.get()
             ser.write(data_to_send)
-            print(f"Sent to serial: {data_to_send.hex()}")
+            # print(f"Sent to serial: {data_to_send.hex()}")
         time.sleep(0.1)  # 暂停以降低CPU使用率
         
 
@@ -358,25 +358,47 @@ def video_feed_qrcode():
 @app.route('/update_thresholds', methods=['POST'])
 def update_thresholds():
     global thresholds
-    thresholds['red']['lower'] = np.array([int(request.form.get('red_lower_h')),
-                                           int(request.form.get('red_lower_s')),
-                                           int(request.form.get('red_lower_v'))])
-    thresholds['red']['upper'] = np.array([int(request.form.get('red_upper_h')),
-                                           int(request.form.get('red_upper_s')),
-                                           int(request.form.get('red_upper_v'))])
-    thresholds['green']['lower'] = np.array([int(request.form.get('green_lower_h')),
-                                             int(request.form.get('green_lower_s')),
-                                             int(request.form.get('green_lower_v'))])
-    thresholds['green']['upper'] = np.array([int(request.form.get('green_upper_h')),
-                                             int(request.form.get('green_upper_s')),
-                                             int(request.form.get('green_upper_v'))])
-    thresholds['blue']['lower'] = np.array([int(request.form.get('blue_lower_h')),
-                                            int(request.form.get('blue_lower_s')),
-                                            int(request.form.get('blue_lower_v'))])
-    thresholds['blue']['upper'] = np.array([int(request.form.get('blue_upper_h')),
-                                            int(request.form.get('blue_upper_s')),
-                                            int(request.form.get('blue_upper_v'))])
-    return 'Thresholds updated successfully!'
+    global block_thresholds
+    if task == 'circle':
+        thresholds['red']['lower'] = np.array([int(request.form.get('red_lower_h')),
+                                            int(request.form.get('red_lower_s')),
+                                            int(request.form.get('red_lower_v'))])
+        thresholds['red']['upper'] = np.array([int(request.form.get('red_upper_h')),
+                                            int(request.form.get('red_upper_s')),
+                                            int(request.form.get('red_upper_v'))])
+        thresholds['green']['lower'] = np.array([int(request.form.get('green_lower_h')),
+                                                int(request.form.get('green_lower_s')),
+                                                int(request.form.get('green_lower_v'))])
+        thresholds['green']['upper'] = np.array([int(request.form.get('green_upper_h')),
+                                                int(request.form.get('green_upper_s')),
+                                                int(request.form.get('green_upper_v'))])
+        thresholds['blue']['lower'] = np.array([int(request.form.get('blue_lower_h')),
+                                                int(request.form.get('blue_lower_s')),
+                                                int(request.form.get('blue_lower_v'))])
+        thresholds['blue']['upper'] = np.array([int(request.form.get('blue_upper_h')),
+                                                int(request.form.get('blue_upper_s')),
+                                                int(request.form.get('blue_upper_v'))])
+        return 'Thresholds updated successfully!'
+    elif task == 'block':
+        block_thresholds['red']['lower'] = np.array([int(request.form.get('red_lower_h')),
+                                            int(request.form.get('red_lower_s')),
+                                            int(request.form.get('red_lower_v'))])
+        block_thresholds['red']['upper'] = np.array([int(request.form.get('red_upper_h')),
+                                            int(request.form.get('red_upper_s')),
+                                            int(request.form.get('red_upper_v'))])
+        block_thresholds['green']['lower'] = np.array([int(request.form.get('green_lower_h')),
+                                                int(request.form.get('green_lower_s')),
+                                                int(request.form.get('green_lower_v'))])
+        block_thresholds['green']['upper'] = np.array([int(request.form.get('green_upper_h')),
+                                                int(request.form.get('green_upper_s')),
+                                                int(request.form.get('green_upper_v'))])
+        block_thresholds['blue']['lower'] = np.array([int(request.form.get('blue_lower_h')),
+                                                int(request.form.get('blue_lower_s')),
+                                                int(request.form.get('blue_lower_v'))])
+        block_thresholds['blue']['upper'] = np.array([int(request.form.get('blue_upper_h')),
+                                                int(request.form.get('blue_upper_s')),
+                                                int(request.form.get('blue_upper_v'))])
+        return 'Thresholds updated successfully!'
 
 
 # 初始化一个ThreadPoolExecutor，工作线程数设置为CPU核心数
