@@ -37,14 +37,14 @@ def serial_open():
 # 定义颜色阈值（HSV格式）
 thresholds = {
     'red': {'lower': np.array([130, 25, 25]), 'upper': np.array([200, 255, 255])},
-    'green': {'lower': np.array([50,30,120]), 'upper': np.array([90,60,255])},
-    'blue': {'lower': np.array([75, 50, 120]), 'upper': np.array([120, 170, 255])}
+    'green': {'lower': np.array([30,30,120]), 'upper': np.array([90,120,255])},
+    'blue': {'lower': np.array([80, 80, 0]), 'upper': np.array([174, 255, 80])}
 }
 
 # 定义色块检测的阈值
 block_thresholds = {
     'red': {'lower': np.array([120, 150, 150]), 'upper': np.array([180, 255, 234])},
-    'green': {'lower': np.array([70, 70, 70]), 'upper': np.array([90, 255, 255])},
+    'green': {'lower': np.array([60, 150, 150]), 'upper': np.array([90, 255, 255])},
     'blue': {'lower': np.array([100, 150, 60]), 'upper': np.array([140, 255, 255])}
 }
 
@@ -78,7 +78,7 @@ def process_camera_feed():
     max_radius = 200
 
     min_area = 500  # 最小面积阈值
-    max_area = 50000  # 最大面积阈值
+    max_area = 500000  # 最大面积阈值
 
     global output_frame
     global thresholds
