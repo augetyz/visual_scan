@@ -12,10 +12,12 @@ app = Flask(__name__)
 
 # 初始化摄像头
 camera = cv2.VideoCapture(0)  # 使用默认摄像头
+camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
 camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 camera.set(cv2.CAP_PROP_FPS, 30)  # 设置为 30 FPS
 camera2 = cv2.VideoCapture(2)  # 使用第二个摄像头
+camera2.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 camera2.set(cv2.CAP_PROP_FRAME_WIDTH,  720)
 camera2.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 camera2.set(cv2.CAP_PROP_FPS, 30)  # 设置为 30 FPS
@@ -34,7 +36,7 @@ def serial_open():
                     print(f"Failed to open {port}: {e}")
         print("No valid serial port found. Retrying...")
         time.sleep(0.1)  # 延迟后重试
-# 定义颜色阈值（HSV格式）
+# 定义颜色阈值（HSV格式） 色环阈值
 thresholds = {
     'red': {'lower': np.array([130, 25, 25]), 'upper': np.array([200, 255, 255])},
     'green': {'lower': np.array([30,30,120]), 'upper': np.array([90,120,255])},
@@ -44,7 +46,7 @@ thresholds = {
 # 定义色块检测的阈值
 block_thresholds = {
     'red': {'lower': np.array([120, 150, 150]), 'upper': np.array([180, 255, 234])},
-    'green': {'lower': np.array([60, 150, 150]), 'upper': np.array([90, 255, 255])},
+    'green': {'lower': np.array([40, 50, 50]), 'upper': np.array([80, 255, 255])},
     'blue': {'lower': np.array([100, 150, 60]), 'upper': np.array([140, 255, 255])}
 }
 
@@ -55,7 +57,7 @@ kernel = np.ones((2, 2), np.uint8)
 output_frame = None
 lock = threading.Lock()  # 线程锁
 
-task = 'block'
+task = 'block' #指定颜色识别线程的任务目标
 
 class LatestQueue(queue.Queue):
     def __init__(self, maxsize=1):
@@ -120,22 +122,22 @@ def process_camera_feed():
 
         if task == 'circle':
             # 使用动态阈值创建掩膜（色环检测）
-            mask_red = cv2.inRange(hsv, thresholds['red']['lower'], thresholds['red']['upper'])
-            mask_red = cv2.erode(mask_red, kernel, iterations=1)
+            # mask_red = cv2.inRange(hsv, thresholds['red']['lower'], thresholds['red']['upper'])
+            # mask_red = cv2.erode(mask_red, kernel, iterations=1)
 
             mask_green = cv2.inRange(hsv, thresholds['green']['lower'], thresholds['green']['upper'])
             mask_green = cv2.erode(mask_green, kernel, iterations=1)
 
-            mask_blue = cv2.inRange(hsv, thresholds['blue']['lower'], thresholds['blue']['upper'])
-            mask_blue = cv2.erode(mask_blue, kernel, iterations=1)
+            # mask_blue = cv2.inRange(hsv, thresholds['blue']['lower'], thresholds['blue']['upper'])
+            # mask_blue = cv2.erode(mask_blue, kernel, iterations=1)
 
             # 对每个颜色进行圆形检测
-            circles_red = cv2.HoughCircles(mask_red, cv2.HOUGH_GRADIENT, dp=1.2, minDist=30,
-                                        param1=50, param2=80, minRadius=10, maxRadius=200)
+            # circles_red = cv2.HoughCircles(mask_red, cv2.HOUGH_GRADIENT, dp=1.2, minDist=30,
+            #                             param1=50, param2=80, minRadius=10, maxRadius=200)
             circles_green = cv2.HoughCircles(mask_green, cv2.HOUGH_GRADIENT, dp=1.2, minDist=30,
                                             param1=50, param2=80, minRadius=10, maxRadius=200)
-            circles_blue = cv2.HoughCircles(mask_blue, cv2.HOUGH_GRADIENT, dp=1.2, minDist=30,
-                                            param1=50, param2=80, minRadius=10, maxRadius=200)
+            # circles_blue = cv2.HoughCircles(mask_blue, cv2.HOUGH_GRADIENT, dp=1.2, minDist=30,
+            #                                 param1=50, param2=80, minRadius=10, maxRadius=200)
 
             # 查找最大圆形的通用函数
             def find_largest_circle(circles):
@@ -146,15 +148,15 @@ def process_camera_feed():
                 return None
 
             # 标注红色最大圆形并打包坐标和半径
-            largest_red_circle = find_largest_circle(circles_red)
-            if largest_red_circle is not None:
-                (x, y, r) = largest_red_circle
-                cv2.circle(annotated_frame, (x, y), r, (0, 0, 255), 4)
-                cv2.circle(annotated_frame, (x, y), 2, (0, 0, 255), 3)  # 标记中心点
-                center = (int(x - 1024 / 2 ), int(y * (-1) + 360))
-                cv2.putText(annotated_frame, f"({center[0]}, {center[1]})", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-                print(f"Red Circle - {(center[0], center[1], r)}")
-                send_data_to_queue(center[0], center[1], 0x01, 0xDD)  # Red circle
+            # largest_red_circle = find_largest_circle(circles_red)
+            # if largest_red_circle is not None:
+            #     (x, y, r) = largest_red_circle
+            #     cv2.circle(annotated_frame, (x, y), r, (0, 0, 255), 4)
+            #     cv2.circle(annotated_frame, (x, y), 2, (0, 0, 255), 3)  # 标记中心点
+            #     center = (int(x - 1024 / 2 ), int(y * (-1) + 360))
+            #     cv2.putText(annotated_frame, f"({center[0]}, {center[1]})", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            #     print(f"Red Circle - {(center[0], center[1], r)}")
+            #     send_data_to_queue(center[0], center[1], 0x01, 0xDD)  # Red circle
 
             # 标注绿色最大圆形
             largest_green_circle = find_largest_circle(circles_green)
@@ -168,15 +170,15 @@ def process_camera_feed():
                 send_data_to_queue(center[0], center[1], 0x02, 0xDD)  # Green circle
 
             # 标注蓝色最大圆形
-            largest_blue_circle = find_largest_circle(circles_blue)
-            if largest_blue_circle is not None:
-                (x, y, r) = largest_blue_circle
-                cv2.circle(annotated_frame, (x, y), r, (255, 0, 0), 4)
-                cv2.circle(annotated_frame, (x, y), 2, (255, 0, 0), 3)  # 标记中心点
-                center = (int(x - 1024 / 2 ), int(y * (-1) + 360 ))
-                cv2.putText(annotated_frame, f"({center[0]}, {center[1]})", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
-                print(f"Blue Circle - {(center[0], center[1], r)}")
-                send_data_to_queue(center[0], center[1], 0x03, 0xDD)  # Blue circle
+            # largest_blue_circle = find_largest_circle(circles_blue)
+            # if largest_blue_circle is not None:
+            #     (x, y, r) = largest_blue_circle
+            #     cv2.circle(annotated_frame, (x, y), r, (255, 0, 0), 4)
+            #     cv2.circle(annotated_frame, (x, y), 2, (255, 0, 0), 3)  # 标记中心点
+            #     center = (int(x - 1024 / 2 ), int(y * (-1) + 360 ))
+            #     cv2.putText(annotated_frame, f"({center[0]}, {center[1]})", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+            #     print(f"Blue Circle - {(center[0], center[1], r)}")
+            #     send_data_to_queue(center[0], center[1], 0x03, 0xDD)  # Blue circle
 
         elif task == 'block':
             # 使用动态阈值创建掩膜（色块检测）
@@ -212,17 +214,6 @@ def process_camera_feed():
                 print(f"Red Block - Center: {center}, Width: {w}, Height: {h}")
                 send_data_to_queue(center[0], center[1], 0x01, 0xEE)  # Red block
 
-            # 标注最大绿色色块
-            largest_green_contour = find_largest_contour(mask_green, min_area, max_area)
-            if largest_green_contour is not None:
-                x, y, w, h = cv2.boundingRect(largest_green_contour)
-                cv2.rectangle(annotated_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                center_position = (int(x  + w // 2), int(y  + h // 2))
-                center = (int(x - 1024 / 2 + w // 2), int(y * (-1) + 360 - h // 2))
-                cv2.putText(annotated_frame, f"({center[0]}, {center[1]})", (center_position[0], center_position[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                print(f"Green Block - Center: {center}, Width: {w}, Height: {h}")
-                send_data_to_queue(center[0], center[1], 0x02, 0xEE)  # Green block
-
             # 标注最大蓝色色块
             largest_blue_contour = find_largest_contour(mask_blue, min_area, max_area)
             if largest_blue_contour is not None:
@@ -233,6 +224,18 @@ def process_camera_feed():
                 cv2.putText(annotated_frame, f"({center[0]}, {center[1]})", (center_position[0], center_position[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
                 print(f"Blue Block - Center: {center}, Width: {w}, Height: {h}")
                 send_data_to_queue(center[0], center[1], 0x03, 0xEE)  # Blue block
+
+            # 标注最大绿色色块
+            largest_green_contour = find_largest_contour(mask_green, min_area, max_area)
+            if largest_green_contour is not None:
+                x, y, w, h = cv2.boundingRect(largest_green_contour)
+                cv2.rectangle(annotated_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                center_position = (int(x  + w // 2), int(y  + h // 2))
+                center = (int(x - 1024 / 2 + w // 2), int(y * (-1) + 360 - h // 2))
+                cv2.putText(annotated_frame, f"({center[0]}, {center[1]})", (center_position[0], center_position[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                print(f"Green Block - Center: {center}, Width: {w}, Height: {h}")
+                send_data_to_queue(center[0], center[1], 0x02, 0xEE)  # Green block
+                
         # 计算并显示帧率（FPS）
         elapsed_time = time.time() - start_time
         if elapsed_time > 0:
@@ -437,9 +440,9 @@ executor = ThreadPoolExecutor(max_workers=8)  # 根据需要调整工作线程�
 if __name__ == '__main__':
     serial_open()
     # 使用executor并行运行摄像头和二维码处理
-    executor.submit(process_camera_feed)
-    executor.submit(process_qr_code)
-    executor.submit(process_serial_communication)
+    executor.submit(process_camera_feed)#颜色识别
+    executor.submit(process_qr_code)#二维码识别
+    executor.submit(process_serial_communication)#串口通讯
     
     #启动Flask服务，访问 http://<服务器IP>:5000 查看识别结果
     app.run(host='0.0.0.0', port=5000)
