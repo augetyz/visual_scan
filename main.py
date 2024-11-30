@@ -45,8 +45,8 @@ thresholds = {
 
 # 定义色块检测的阈值
 block_thresholds = {
-    'red': {'lower': np.array([120, 150, 150]), 'upper': np.array([180, 255, 234])},
-    'green': {'lower': np.array([40, 50, 50]), 'upper': np.array([80, 255, 255])},
+    'red': {'lower': np.array([120, 150, 150]), 'upper': np.array([180, 255, 255])},
+    'green': {'lower': np.array([40, 50, 90]), 'upper': np.array([80, 255, 255])},
     'blue': {'lower': np.array([100, 150, 60]), 'upper': np.array([140, 255, 255])}
 }
 
@@ -79,8 +79,8 @@ def process_camera_feed():
     min_radius = 10
     max_radius = 200
 
-    min_area = 500  # 最小面积阈值
-    max_area = 500000  # 最大面积阈值
+    min_area = 80000  # 最小面积阈值
+    max_area = 800000  # 最大面积阈值
 
     global output_frame
     global thresholds
@@ -202,7 +202,6 @@ def process_camera_feed():
                             largest_contour = contour
                 return largest_contour
 
-            min_area = 500  # 定义最小面积阈值
             # 标注最大红色色块
             largest_red_contour = find_largest_contour(mask_red, min_area, max_area)
             if largest_red_contour is not None:
