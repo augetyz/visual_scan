@@ -79,7 +79,7 @@ def process_camera_feed():
     min_radius = 10
     max_radius = 200
 
-    min_area = 80000  # 最小面积阈值
+    min_area = 40000  # 最小面积阈值
     max_area = 800000  # 最大面积阈值
 
     global output_frame
