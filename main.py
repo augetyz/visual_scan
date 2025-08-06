@@ -45,8 +45,8 @@ thresholds = {
 
 # 定义色块检测的阈值
 block_thresholds = {
-    'red': {'lower': np.array([120, 150, 150]), 'upper': np.array([180, 255, 234])},
-    'green': {'lower': np.array([40, 50, 50]), 'upper': np.array([80, 255, 255])},
+    'red': {'lower': np.array([120, 150, 150]), 'upper': np.array([180, 255, 255])},
+    'green': {'lower': np.array([40, 50, 90]), 'upper': np.array([80, 255, 255])},
     'blue': {'lower': np.array([100, 150, 60]), 'upper': np.array([140, 255, 255])}
 }
 
@@ -79,8 +79,8 @@ def process_camera_feed():
     min_radius = 10
     max_radius = 200
 
-    min_area = 500  # 最小面积阈值
-    max_area = 500000  # 最大面积阈值
+    min_area = 20000  # 最小面积阈值
+    max_area = 800000  # 最大面积阈值
 
     global output_frame
     global thresholds
@@ -202,7 +202,6 @@ def process_camera_feed():
                             largest_contour = contour
                 return largest_contour
 
-            min_area = 500  # 定义最小面积阈值
             # 标注最大红色色块
             largest_red_contour = find_largest_contour(mask_red, min_area, max_area)
             if largest_red_contour is not None:
@@ -282,15 +281,47 @@ def process_qr_code():
             print("Error: Received empty frame.")
             continue
         try:
-            # 使用 detectAndDecode 方法检测 QR 码
+            detected = False
+            # 1. 先检测QR码
             data, bbox, _ = qr_detector.detectAndDecode(frame)
-
+            
             if bbox is not None and data:
                 # 确保 bbox 是整数并绘制多边形
                 bbox = bbox.astype(int)
                 cv2.polylines(frame, [bbox], isClosed=True, color=(0, 255, 0), thickness=2)
                 print(f"Detected QR code: {data}")
                 send_qr_data_to_queue(data)
+                detected = True
+            
+            # 2. 如果没有检测到QR码，尝试使用pyzbar检测条形码
+            if not detected:
+                # 将图像转换为灰度图（pyzbar处理灰度图效果更好）
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                
+                # 使用pyzbar检测条形码
+                barcodes = pyzbar.decode(gray)
+                
+                for barcode in barcodes:
+                    # 只处理条形码（排除QR码）
+                    if barcode.type != 'QRCODE':
+                        # 提取条形码数据和类型
+                        barcode_data = barcode.data.decode("utf-8")
+                        barcode_type = barcode.type
+                        
+                        # 绘制条形码边界
+                        (x, y, w, h) = barcode.rect
+                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                        
+                        # 在图像上绘制条形码数据和类型
+                        text = f"{barcode_type}: {barcode_data}"
+                        cv2.putText(frame, text, (x, y - 10), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                        
+                        print(f"Detected Barcode ({barcode_type}): {barcode_data}")
+                        send_qr_data_to_queue(barcode_data)
+                        detected = True
+                        break  # 检测到一个条形码就退出循环
+                    
         except cv2.error as e:
             print(f"OpenCV error during QR code detection: {e}")
 
